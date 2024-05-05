@@ -1,4 +1,4 @@
-module priority-queue
+module github.com/ycvk/priority-queue
 
 go 1.22
 
