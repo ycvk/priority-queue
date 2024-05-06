@@ -10,6 +10,7 @@ import (
 type PriorityQueue[T any, P constraints.Ordered] interface {
 	Len() int
 	Put(value T, priority P)
+	BatchPut(items ...*Item[T, P])
 	Get() *Item[T, P]
 	GetAndPop() *Item[T, P]
 	IsEmpty() bool
@@ -157,4 +158,32 @@ func (pq *HeapPriorityQueue[T, P]) Clear() {
 	lookup := make(map[T]int)
 	atomic.StorePointer(&pq.items, unsafe.Pointer(&items))
 	atomic.StorePointer(&pq.lookup, unsafe.Pointer(&lookup))
+}
+
+// BatchPut 批量将元素添加到优先级队列中
+func (pq *HeapPriorityQueue[T, P]) BatchPut(items ...*Item[T, P]) {
+	if len(items) == 0 {
+		return
+	}
+
+	// 将新元素追加到切片末尾
+	oldItems := (*[]*Item[T, P])(atomic.LoadPointer(&pq.items))
+	newItems := append(*oldItems, items...)
+	atomic.StorePointer(&pq.items, unsafe.Pointer(&newItems))
+
+	// 更新lookup映射
+	oldLookup := (*map[T]int)(atomic.LoadPointer(&pq.lookup))
+	newLookup := make(map[T]int, len(*oldLookup)+len(items))
+	for k, v := range *oldLookup {
+		newLookup[k] = v
+	}
+	for i, item := range items {
+		newLookup[item.Value] = len(*oldItems) + i
+	}
+	atomic.StorePointer(&pq.lookup, unsafe.Pointer(&newLookup))
+
+	// 调整堆
+	for i := len(*oldItems); i < len(newItems); i++ {
+		heap.Fix(pq, i)
+	}
 }
