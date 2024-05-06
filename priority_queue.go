@@ -8,7 +8,6 @@ import (
 
 type PriorityQueue[T any, P constraints.Ordered] interface {
 	Len() int
-	Pop() any
 	Put(value T, priority P)
 	Get() *Item[T, P]
 	GetAndPop() *Item[T, P]
@@ -82,9 +81,6 @@ func (pq *HeapPriorityQueue[T, P]) Push(x any) {
 
 // Pop implements heap.Interface 弹出最后一个元素
 func (pq *HeapPriorityQueue[T, P]) Pop() any {
-	pq.lock.Lock()
-	defer pq.lock.Unlock()
-
 	n := len(pq.items)
 	item := pq.items[n-1]
 	pq.items = pq.items[:n-1]     // 直接截断 slice
