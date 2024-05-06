@@ -68,7 +68,7 @@ import (
 )
 
 func main() {
-    mpq := pq.New[string, int](priorityqueue.MinHeap)
+    mpq := pq.New[string, int](pq.MinHeap)
 
     mpq.Put("task1", 5)
     mpq.Put("task2", 3)
