@@ -43,4 +43,10 @@ func BenchmarkHeapPriorityQueue(b *testing.B) {
 			pq.Put(item.Value, item.Priority)
 		}
 	})
+
+	b.Run("upsert", func(b *testing.B) {
+		for range b.N {
+			pq.Upsert(rand.Int(), rand.Int())
+		}
+	})
 }

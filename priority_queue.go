@@ -15,6 +15,7 @@ type PriorityQueue[T any, P constraints.Ordered] interface {
 	GetAndPop() *Item[T, P]
 	IsEmpty() bool
 	Update(value T, priority P)
+	Upsert(value T, priority P)
 	Clear()
 }
 
@@ -72,6 +73,9 @@ func (pq *HeapPriorityQueue[T, P]) Less(i, j int) bool {
 
 // Swap implements heap.Interface
 func (pq *HeapPriorityQueue[T, P]) Swap(i, j int) {
+	if i < 0 || j < 0 {
+		return
+	}
 	items := atomic.LoadPointer(&pq.items)
 	slice := *(*[]*Item[T, P])(items)
 	slice[i], slice[j] = slice[j], slice[i]
@@ -99,6 +103,9 @@ func (pq *HeapPriorityQueue[T, P]) Push(x any) {
 func (pq *HeapPriorityQueue[T, P]) Pop() any {
 	items := (*[]*Item[T, P])(atomic.LoadPointer(&pq.items))
 	n := len(*items)
+	if n == 0 {
+		return nil
+	}
 	item := (*items)[n-1]
 	*items = (*items)[:n-1]
 	atomic.StorePointer(&pq.items, unsafe.Pointer(items))
@@ -185,5 +192,41 @@ func (pq *HeapPriorityQueue[T, P]) BatchPut(items ...*Item[T, P]) {
 	// 调整堆
 	for i := len(*oldItems); i < len(newItems); i++ {
 		heap.Fix(pq, i)
+	}
+}
+
+// Upsert 插入新元素或更新已有元素的优先级
+func (pq *HeapPriorityQueue[T, P]) Upsert(value T, priority P) {
+	item := &Item[T, P]{Value: value, Priority: priority}
+
+	// 检查元素是否已存在
+	oldLookup := (*map[T]int)(atomic.LoadPointer(&pq.lookup))
+	if index, ok := (*oldLookup)[value]; ok {
+		// 元素已存在,更新优先级
+		oldItems := (*[]*Item[T, P])(atomic.LoadPointer(&pq.items))
+		if (*oldItems)[index].Priority != priority {
+			(*oldItems)[index].Priority = priority
+			heap.Fix(pq, index)
+		}
+		return
+	}
+
+	// 元素不存在,插入新元素
+	for {
+		oldItems := (*[]*Item[T, P])(atomic.LoadPointer(&pq.items))
+		newItems := append(*oldItems, item)
+
+		oldLookup := (*map[T]int)(atomic.LoadPointer(&pq.lookup))
+		newLookup := make(map[T]int, len(*oldLookup)+1)
+		for k, v := range *oldLookup {
+			newLookup[k] = v
+		}
+		newLookup[value] = len(newItems) - 1
+
+		if atomic.CompareAndSwapPointer(&pq.items, unsafe.Pointer(oldItems), unsafe.Pointer(&newItems)) &&
+			atomic.CompareAndSwapPointer(&pq.lookup, unsafe.Pointer(oldLookup), unsafe.Pointer(&newLookup)) {
+			heap.Fix(pq, len(newItems)-1)
+			return
+		}
 	}
 }
