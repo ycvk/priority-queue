@@ -131,7 +131,7 @@ PASS
 可以看到快了几倍以上。
 ## 许可证
 
-本项目采用MIT许可证,详情请参阅[LICENSE](https://github.com/ycvk/priority-queue/blob/main/LICENSE)文件。
+本项目采用许可证详情请参阅[LICENSE](https://github.com/ycvk/priority-queue/blob/main/LICENSE)文件。
 
 ## 贡献
 
